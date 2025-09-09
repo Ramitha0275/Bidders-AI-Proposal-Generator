@@ -1,66 +1,56 @@
 import React, { useState } from "react";
-import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { useStripe } from "@stripe/react-stripe-js";
 import { CreditCard, Lock, DollarSign } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
 
 const PaymentForm = ({
   amount,
+  customerId,
+  priceId,
+  planType = "BASE", // or "PREMIUM"
   onSuccess,
   onError,
-  description = "Payment",
+  description = "Subscription",
+  authToken, // optional if you're using auth
 }) => {
   const stripe = useStripe();
-  const elements = useElements();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!stripe || !elements) {
-      return;
-    }
+    if (!stripe) return;
 
     setProcessing(true);
     setError("");
 
     try {
-      // Create payment intent
-      const response = await fetch("/api/payments/create-intent", {
+      const response = await fetch("/api/payments/create-subscription", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(authToken && { Authorization: `Bearer ${authToken}` }),
         },
         body: JSON.stringify({
-          amount: amount,
-          currency: "usd",
-          metadata: {
-            description: description,
-          },
+          customerId,
+          priceId,
+          planType,
         }),
       });
 
-      const { client_secret, error: backendError } = await response.json();
+      const { sessionId, error: backendError } = await response.json();
 
-      if (backendError) {
-        setError(backendError);
+      if (backendError || !sessionId) {
+        setError(backendError || "Failed to create Stripe session.");
         setProcessing(false);
         return;
       }
 
-      // Confirm payment
-      const { error: stripeError, paymentIntent } =
-        await stripe.confirmCardPayment(client_secret, {
-          payment_method: {
-            card: elements.getElement(CardElement),
-          },
-        });
-
-      if (stripeError) {
-        setError(stripeError.message);
-        onError && onError(stripeError);
-      } else if (paymentIntent.status === "succeeded") {
-        onSuccess && onSuccess(paymentIntent);
-      }
+      const stripeInstance = await loadStripe(
+        process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY
+      );
+      await stripeInstance.redirectToCheckout({ sessionId });
     } catch (err) {
       setError("An unexpected error occurred.");
       onError && onError(err);
@@ -69,25 +59,13 @@ const PaymentForm = ({
     setProcessing(false);
   };
 
-  const cardElementOptions = {
-    style: {
-      base: {
-        fontSize: "16px",
-        color: "#424770",
-        "::placeholder": {
-          color: "#aab7c4",
-        },
-      },
-    },
-  };
-
   return (
     <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow-lg">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold flex items-center">
             <CreditCard className="h-5 w-5 mr-2 text-blue-600" />
-            Payment Details
+            Subscription Details
           </h3>
           <div className="flex items-center text-green-600">
             <Lock className="h-4 w-4 mr-1" />
@@ -107,10 +85,6 @@ const PaymentForm = ({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="border border-gray-300 rounded-md p-3 bg-white">
-          <CardElement options={cardElementOptions} />
-        </div>
-
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
             {error}
@@ -132,7 +106,7 @@ const PaymentForm = ({
               Processing...
             </div>
           ) : (
-            `Pay $${amount.toFixed(2)}`
+            `Subscribe for $${amount.toFixed(2)}`
           )}
         </button>
 
