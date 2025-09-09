@@ -24,6 +24,7 @@ model User {
   // Relationships
   companies     Company[]
   notifications Notification[]
+  orders        Order[] // Added the orders relation here
 
   @@map("users")
 }
@@ -130,7 +131,23 @@ model Notification {
   @@map("notifications")
 }
 
+model Order {
+  id             Int      @id @default(autoincrement())
+  userId         String // Corrected to String
+  planType       PlanType
+  downloadCount  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  User           User     @relation(fields: [userId], references: [id])
+}
+
 // Enums
+enum PlanType {
+  BASE
+  PREMIUM
+}
+
 enum Role {
   ADMIN
   BIDDER
