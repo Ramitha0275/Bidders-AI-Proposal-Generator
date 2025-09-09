@@ -258,6 +258,17 @@ app.post("/api/payments/create-customer", async (req, res) => {
 app.post("/api/payments/create-subscription", async (req, res) => {
   try {
     const { customerId, priceId, metadata } = req.body;
+    const session = await paymentService.stripe.checkout.sessions.create({
+     payment_method_types: ['card'],
+     line_items: [{ price: priceId, quantity: 1 }],
+     mode: 'subscription',
+     success_url: 'https://yourdomain.com/success',
+     cancel_url: 'https://yourdomain.com/cancel',
+     metadata: {
+      userId: req.user.id,         // From auth middleware
+      planType: req.body.planType, // Passed from frontend
+    },
+  });
 
     if (!customerId || !priceId) {
       return res.status(400).json({
