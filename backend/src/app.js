@@ -118,6 +118,9 @@ app.use("/api/auth", authRoutes);
 const proposalRoutes = require("./routes/proposals");
 app.use("/api/proposals", proposalRoutes);
 
+const downloadRoutes = require("./routes/download"); 
+app.use("/api", downloadRoutes); 
+
 // Tender routes
 app.post("/api/tenders", async (req, res) => {
   try {
@@ -158,6 +161,7 @@ app.get("/api/tenders/location/:location", authenticateUser, (req, res) =>
 app.get("/api/tenders/api/countries", authenticateUser, (req, res) =>
   TenderController.getCountries(req, res)
 );
+
 
 // Original vector search (keep for backward compatibility)
 app.post("/api/tenders/search", async (req, res) => {
