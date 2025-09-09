@@ -307,6 +307,24 @@ app.get("/api/payments/history/:customerId", async (req, res) => {
 app.post(
   "/api/payments/webhook",
   express.raw({ type: "application/json" }),
+  if (event.type === 'checkout.session.completed') {
+  const session = event.data.object;
+  const userId = session.metadata.userId;
+  const planType = session.metadata.planType;
+
+  if (userId && planType) {
+  await prisma.order.create({
+    data: {
+      userId,
+      planType,
+      downloadCount: 0,
+    },
+  });
+  console.log(`✅ Order created for user ${userId} with plan ${planType}`);
+} else {
+  console.warn("⚠️ Missing metadata: userId or planType not found in session");
+}
+}
   async (req, res) => {
     try {
       const sig = req.headers["stripe-signature"];
